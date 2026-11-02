@@ -72,7 +72,7 @@
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/constraintLayout_position_positioning_server"
                     android:layout_width="match_parent"
-                    android:layout_height="170dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:background="@color/white"
                     android:paddingHorizontal="20dp"
@@ -150,6 +150,30 @@
                         app:layout_constraintHorizontal_weight="4"
                         app:layout_constraintStart_toEndOf="@+id/textView_position_positioning_server_option_colon"
                         app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_port" />
+
+                    <TextView
+                        android:id="@+id/textView_position_positioning_server_option_api_key"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="15dp"
+                        android:text="@string/server_option_api_key"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/editText_position_positioning_server_option_ip" />
+
+                    <EditText
+                        android:id="@+id/editText_position_positioning_server_option_api_key"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_marginTop="5dp"
+                        android:layout_marginBottom="10dp"
+                        android:gravity="center"
+                        android:hint="X-API-KEY"
+                        android:importantForAutofill="no"
+                        android:inputType="textPassword"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_api_key" />
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 

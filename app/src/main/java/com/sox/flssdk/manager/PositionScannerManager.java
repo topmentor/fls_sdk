@@ -171,6 +171,10 @@ public class PositionScannerManager {
                             Map<String, String> headers = new HashMap<String, String>();
                             headers.put("Content-Type", "application/json");
                             headers.put("Accept", "application/json");
+                            String apiKey = CommonDoc.Position.positioningServerApiKey;
+                            if (apiKey != null && !apiKey.trim().isEmpty()) {
+                                headers.put("X-API-KEY", apiKey.trim());
+                            }
                             return headers;
                         }
                     };

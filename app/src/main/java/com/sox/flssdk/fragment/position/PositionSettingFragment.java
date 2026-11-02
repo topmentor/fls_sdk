@@ -26,6 +26,7 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
 
     EditText mPositioningServerOptionIp;
     EditText mPositioningServerOptionPort;
+    EditText mPositioningServerOptionApiKey;
 
     ImageButton mCloseButton;
     ImageButton mSaveButton;
@@ -39,6 +40,7 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
 
         mPositioningServerOptionIp = view.findViewById(R.id.editText_position_positioning_server_option_ip);
         mPositioningServerOptionPort = view.findViewById(R.id.editText_position_positioning_server_option_port);
+        mPositioningServerOptionApiKey = view.findViewById(R.id.editText_position_positioning_server_option_api_key);
         mCloseButton = view.findViewById(R.id.imageButton_position_close_setting);
         mSaveButton = view.findViewById(R.id.imageButton_position_save_setting);
 
@@ -101,7 +103,9 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
 
     public void setSetting() {
         mPositioningServerOptionIp.setText(CommonDoc.Position.positioningServerIp);
-        mPositioningServerOptionPort.setText(CommonDoc.Position.positioningServerPort);    }
+        mPositioningServerOptionPort.setText(CommonDoc.Position.positioningServerPort);
+        mPositioningServerOptionApiKey.setText(CommonDoc.Position.positioningServerApiKey);
+    }
 
 
     /**
@@ -126,6 +130,7 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
 
         preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, mPositioningServerOptionIp.getText().toString());
         preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT, mPositioningServerOptionPort.getText().toString());
+        preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY, mPositioningServerOptionApiKey.getText().toString().trim());
         preferMap.put(CommonDoc.Position.PREFER_KEY_TARGET_OPTION, "gps");
 
         return preferMap;

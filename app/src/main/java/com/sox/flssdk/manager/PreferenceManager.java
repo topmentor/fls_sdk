@@ -65,6 +65,7 @@ public class PreferenceManager {
         // 측위 서버
         CommonDoc.Position.positioningServerIp = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, "");
         CommonDoc.Position.positioningServerPort = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT, "");
+        CommonDoc.Position.positioningServerApiKey = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY, "");
 
         CommonDoc.Position.positioningServer = null;
         if (CommonDoc.Position.positioningServerIp != null && !"".equals(CommonDoc.Position.positioningServerIp)) {

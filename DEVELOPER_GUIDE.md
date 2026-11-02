@@ -156,6 +156,7 @@ manager.startScan();
 **서버 요청 정책**
 - HTTP 메서드: `POST`
 - Content-Type: `application/json`
+- `X-API-KEY`: 설정에 API 키를 입력한 경우에만 헤더에 넣음
 - 타임아웃: 60초 (`CommonDoc.ServerCall.WAIT_TIME`)
 - 재시도: 0회 (`CommonDoc.ServerCall.RETRY`)
 
@@ -243,7 +244,7 @@ private final class ScanReceiveHandler extends Handler {
 
 ## 7. 서버 설정
 
-설정 화면(`PositionSettingFragment`)에서는 **서버 주소와 포트만** 입력합니다. `PreferenceManager`로 직접 지정할 수도 있습니다.
+설정 화면(`PositionSettingFragment`)에서는 **서버 주소, 포트, API 키**를 입력합니다. API 키는 비워 둘 수 있고, 입력하면 측위 요청에 `X-API-KEY` 헤더로 실립니다. `PreferenceManager`로 직접 지정할 수도 있습니다.
 API 경로는 입력받지 않고 코드 상수로 고정되어 있습니다.
 
 ```java
@@ -259,6 +260,7 @@ public static final String POSITIONING_API_URI = "/LocationDBService/getPosition
 |----------|--------|
 | 측위 서버 주소 (예: `http://your-server.com`) | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP` |
 | 측위 서버 Port | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT` |
+| API 키 (`X-API-KEY` 헤더) | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY` |
 
 ### 설정 저장 및 로드
 
@@ -267,6 +269,7 @@ public static final String POSITIONING_API_URI = "/LocationDBService/getPosition
 Map<String, Object> settings = new HashMap<>();
 settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP,   "http://your-server.com");
 settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT, "YOUR_PORT");
+settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY, "YOUR_API_KEY");  // 선택
 PreferenceManager.setPreferences(context, CommonDoc.Position.PREFER_SETTING_FILE, settings);
 
 // 로드 (CommonDoc.Position.* 정적 필드에 반영됨)

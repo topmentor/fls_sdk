@@ -4,4 +4,5 @@
     <string name="server_option_path">전송위치</string>
     <string name="server_option_ip">ip</string>
     <string name="server_option_port">port</string>
+    <string name="server_option_api_key">API Key (X-API-KEY)</string>
 </resources>

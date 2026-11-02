@@ -84,6 +84,7 @@ public class CommonDoc {
 
         public static final String PREFER_KEY_POSITIONING_SERVER_OPTION_IP = "positioning_server_option_ip";
         public static final String PREFER_KEY_POSITIONING_SERVER_OPTION_PORT = "positioning_server_option_port";
+        public static final String PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY = "positioning_server_option_api_key";
 
         public static final String PREFER_KEY_TARGET_OPTION = "target_option";
 
@@ -97,6 +98,8 @@ public class CommonDoc {
         public static String positioningServer;
         public static String positioningServerIp;
         public static String positioningServerPort;
+        // 측위 요청 시 X-API-KEY 헤더로 보낸다. 비어 있으면 헤더를 넣지 않는다.
+        public static String positioningServerApiKey;
 
     }
 
