@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">FLS SDK</string>
+    <string name="colon">:</string>
+    <string name="server_option_path">전송위치</string>
+    <string name="server_option_ip">ip</string>
+    <string name="server_option_port">port</string>
+</resources>
