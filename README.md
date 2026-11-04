@@ -217,6 +217,7 @@ FLS_SDK/
 ├── gradle.properties
 ├── new-project.ps1         ← 템플릿 복제 스크립트 (신규 프로젝트 생성)
 ├── DEVELOPER_GUIDE.md      ← 개발자 연동 매뉴얼
+├── AI_PORTING_GUIDE.md     ← AI 코딩 에이전트용 다른 앱 이식 지침
 ├── LICENSE                 ← GPL-3.0
 └── README.md
 ```
@@ -225,12 +226,14 @@ FLS_SDK/
 
 ## 12. 개발자 연동 가이드
 
-신호 센싱 및 측위 호출 방법은 **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** 를 참고하세요.
+측위 호출 방법은 **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** 를 참고하세요.
 
-- LTE / Wi-Fi / BLE 신호 센싱 방법
+- 필수 권한
 - 서버 복합측위 호출 코드 예시
-- 요청 / 응답 JSON 구조
+- 측위 결과 수신과 응답 JSON 구조
 - 서버 설정 변경 방법
+
+Claude Code, Codex 같은 AI 코딩 에이전트에게 이 기능을 다른 앱에 옮기게 할 때는 **[AI_PORTING_GUIDE.md](AI_PORTING_GUIDE.md)** 를 먼저 읽게 합니다.
 
 ---
 
