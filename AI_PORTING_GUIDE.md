@@ -62,6 +62,7 @@ C:\project\flssdk 의 AI_PORTING_GUIDE.md 를 먼저 끝까지 읽고 그대로 
 | `scanner/WifiScanner.java` | 신호 수집 | `CommonDoc` |
 | `scanner/BluetoothScanner.java` | 신호 수집 | `CommonDoc` |
 | `model/Buffer.java` | 수집값 버퍼 | — |
+| `model/PositionError.java` | 측위 요청 오류 정보 (종류·코드·이유) | — |
 | `manager/ServerManager.java` | Volley `RequestQueue` 싱글턴 | Volley |
 | `manager/ServerFLPManager.java` | 서버 응답 해석 | `requestDevice_II1`, `GpsScanner`, `GoogleFLPScanner`, `DateTimeUtils` |
 | `manager/requestDevice_II1.java` | 요청 데이터 모델 | `DateTimeUtils`, `CoordTransformUtil`, `GPoint` |
@@ -136,7 +137,7 @@ implementation 'org.locationtech.proj4j:proj4j:1.4.1'
 |------|------|--------------|
 | `HANDLER_STATUS_UPDATE` (`"status_update"`) | 진행 상태 | `{"message": "서버 요청"}` |
 | `HANDLER_SUCCEED_RESULT` (`"succeed"`) | 서버 응답 수신 | 5절의 결과 JSON |
-| `HANDLER_FAILED_RESULT` (`"failed"`) | 네트워크 오류, 타임아웃, HTTP 오류 | 없음 |
+| `HANDLER_FAILED_RESULT` (`"failed"`) | 서버 응답을 받지 못함 (통신·HTTP·앱 내부 오류) | `{"message": "<표시용 문장>", "error": {...}}` (5-1절) |
 
 교체 예시 (원본 코드 스타일을 따른다):
 
@@ -144,7 +145,7 @@ implementation 'org.locationtech.proj4j:proj4j:1.4.1'
 public interface PositionResultListener {
     void onStatus(String message);
     void onResult(JSONObject result);
-    void onFailure();
+    void onFailure(PositionError error);
 }
 ```
 
@@ -163,7 +164,7 @@ public void sendResultToFragment(String status, JSONObject object) {
     }
     mMainHandler.post(() -> {
         if (CommonDoc.Position.HANDLER_FAILED_RESULT.equals(status)) {
-            mListener.onFailure();
+            mListener.onFailure(PositionError.fromJson(object == null ? null : object.optJSONObject(PositionError.KEY)));
         } else if (CommonDoc.Position.HANDLER_SUCCEED_RESULT.equals(status)) {
             mListener.onResult(object);
         } else if (CommonDoc.Position.HANDLER_STATUS_UPDATE.equals(status) && object != null) {
@@ -188,7 +189,7 @@ public void sendResultToFragment(String status, JSONObject object) {
 | `CommonDoc.Position.positioningServerApiKey` | API 키. 비어 있으면 `X-API-KEY` 헤더를 넣지 않는다 |
 | `CommonDoc.Position.position_type` | `"server"` 고정. 다른 값이면 서버 요청을 보내지 않는다 |
 
-- `positioningServerIp`, `positioningServerPort`는 원본 설정 화면용이다. URL을 직접 만들면 쓰지 않아도 된다.
+- `positioningServerIp`(포트 포함 주소)는 원본 설정 화면용이다. URL을 직접 만들면 쓰지 않아도 된다. 포트는 별도 필드 없이 주소에 함께 적는다. `PREFER_KEY_POSITIONING_SERVER_OPTION_PORT`는 이전 버전 설정을 옮기는 용도로만 남아 있다.
 - 서버 주소와 API 키를 소스에 문자열로 박지 않는다. 키는 Git에 올라가지 않는 곳(예: `local.properties`에서 읽어 `BuildConfig`로 주입, 또는 대상 앱이 이미 쓰는 비밀값 저장 방식)에 둔다. 어디에 둘지는 2절 답을 따른다.
 - `CommonDoc`에서 대상 앱이 쓰지 않는 필드(`REQUEST_ONDEVICE_MODEL_URL`, `MODEL_DOWNLOAD_DIRECTORY`, `ServerCall.DEFAULT_*`, `WAIT_TIME2`, `RETRY2`, `target_type`)는 지워도 된다. 지운 뒤 빌드로 참조가 없는지 확인한다.
 - `CommonDoc.Scanner`, `CommonDoc.Position.SCAN_INTERVAL`, `CommonDoc.ServerCall.WAIT_TIME`/`RETRY` 값은 **바꾸지 않는다** (7절).
@@ -247,7 +248,23 @@ manager.startScan();
 | 그 밖 | 미확인 | |
 
 - 대상 앱에서는 **`result_code == 0`일 때만 서버 측위 성공**으로 취급하도록 구현한다. 원본 `ServerFLPManager`는 `999`가 아니면 `pos_info`를 읽는데, 이 동작은 바꾸지 않는다.
+- 결과 코드가 0이 아니면 결과 JSON에 `error`(5-1절)가 함께 들어 있다.
 - 원본 화면은 결과 좌표와 단말 GPS 좌표 사이 거리를 `CoordTransformUtil.getDistanceBetween(new GPoint(lon, lat), new GPoint(sLon, sLat), true)`로 계산해 표시한다. `GPoint` 인자 순서는 (경도, 위도)다. 필요할 때만 쓴다.
+
+### 5-1. 오류 정보 (`PositionError`)
+
+요청이 실패하면 원인을 네 종류로 나눈 `PositionError`가 만들어진다. 대상 앱 화면에도 종류와 이유를 함께 보여 주게 구현한다. "오류"라고만 표시하지 않는다.
+
+| `type` | 뜻 | 전달 경로 |
+|--------|----|-----------|
+| `positioning` | 서버는 정상 응답, 측위 결과가 0이 아님 (`RESULT_<코드>`) | 결과 JSON의 `error` |
+| `server` | HTTP 오류(`HTTP_<상태>`), 응답 형식 오류(`BAD_RESPONSE`) | 실패 페이로드 또는 결과 JSON의 `error` |
+| `network` | 서버에 닿지 못함 (`NO_NETWORK`, `UNKNOWN_HOST`, `CONNECT_FAILED`, `TIMEOUT`, `SSL`, `NETWORK`) | 실패 페이로드 |
+| `app` | 설정·앱 처리 오류 (`NO_SERVER`, `BAD_URL`, `CLEARTEXT_BLOCKED`, `EXCEPTION`, `UNKNOWN`) | 실패 페이로드 또는 결과 JSON의 `error` |
+
+- 필드: `type`, `type_label`, `code`, `message`, `detail`, `http_status`, `time`. 자세한 내용은 [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) 9절에 있다.
+- 콜백 밖에서 조회: `PositionScannerManager.getLastError()`. `startScan()` 때 `null`로 초기화된다.
+- 표시 문장: `error.toDisplayText()`.
 
 ---
 
@@ -277,11 +294,10 @@ manager.startScan();
 3. **실행**: 실기기 권장. 에뮬레이터는 신호 수집이 실제와 다르다. 권한 허용 후 측위를 시작하고 logcat에서 다음 순서를 확인한다.
    - `Position Scanner Manager: start scan`
    - `ScanTimerTask: Positioning Server Request`
-   - `ScanTimerTask: Receive Location Data - Server` (성공) 또는 실패 콜백
+   - `ScanTimerTask: Receive Location Data - Server` (성공) 또는 `ScanTimerTask: Positioning Error: {...}` (실패, 오류 종류 포함)
    - `Position Scanner Manager: stop scan`
-4. **헤더 확인**: API 키를 넣었을 때 요청에 `X-API-KEY`가 실리는지. 실서버 대신 로컬 수신기로 확인한다(에뮬레이터에서 호스트 PC는 `10.0.2.2`). 시험용 가짜 키만 쓰고, 실제 키는 사용자가 직접 넣어 시험한다.
-5. **실서버 시험**: 서버 주소와 키는 사용자가 앱에 직접 넣는다. 결과 코드와 메시지를 보고한다.
-6. **반복 측위**: 두 번 이상 연속 실행해 4-8절의 1회용 객체 규칙이 지켜지는지 확인한다.
+4. **실서버 시험**: 측위 시험은 실제 측위 서버로만 의미가 있다. 임의 주소나 로컬 수신기를 대상으로 시험하지 않는다. 서버 주소와 API 키는 사용자가 앱에 직접 넣고, 실행 여부도 사용자가 정한다. 에이전트는 시험 절차를 안내하고, 사용자가 알려 준 결과 코드·메시지·오류 종류를 정리한다.
+5. **반복 측위**: 두 번 이상 연속 실행해 4-8절의 1회용 객체 규칙이 지켜지는지 확인한다. 4번과 같이 사용자가 실서버로 한다.
 
 ---
 

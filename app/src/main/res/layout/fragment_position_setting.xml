@@ -86,70 +86,18 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toTopOf="parent" />
 
-                    <TextView
-                        android:id="@+id/textView_position_positioning_server_option_ip"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:gravity="center"
-                        android:text="@string/server_option_ip"
-                        app:layout_constraintEnd_toEndOf="@+id/editText_position_positioning_server_option_ip"
-                        app:layout_constraintHorizontal_weight="5"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_place" />
-
-                    <TextView
-                        android:id="@+id/textView_position_positioning_server_option_port"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:gravity="center"
-                        android:text="@string/server_option_port"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintHorizontal_weight="3"
-                        app:layout_constraintStart_toEndOf="@+id/textView_position_positioning_server_option_colon"
-                        app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_place" />
-
                     <EditText
                         android:id="@+id/editText_position_positioning_server_option_ip"
                         android:layout_width="0dp"
                         android:layout_height="46dp"
                         android:layout_marginTop="5dp"
-                        android:ems="10"
                         android:gravity="center"
-                        android:hint="http://example.com"
+                        android:hint="http://example.com:8080"
+                        android:importantForAutofill="no"
                         android:inputType="textUri"
-                        app:layout_constraintEnd_toStartOf="@+id/textView_position_positioning_server_option_colon"
-                        app:layout_constraintHorizontal_weight="5"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_ip" />
-
-                    <TextView
-                        android:id="@+id/textView_position_positioning_server_option_colon"
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:gravity="center"
-                        android:text="@string/colon"
-                        app:layout_constraintBottom_toBottomOf="@+id/editText_position_positioning_server_option_ip"
-                        app:layout_constraintEnd_toStartOf="@+id/editText_position_positioning_server_option_port"
-                        app:layout_constraintHorizontal_weight="1"
-                        app:layout_constraintStart_toEndOf="@+id/editText_position_positioning_server_option_ip"
-                        app:layout_constraintTop_toTopOf="@+id/editText_position_positioning_server_option_ip" />
-
-                    <EditText
-                        android:id="@+id/editText_position_positioning_server_option_port"
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:layout_marginTop="5dp"
-                        android:ems="10"
-                        android:gravity="center"
-                        android:hint="8080"
-                        android:inputType="number"
-                        app:layout_constraintBottom_toBottomOf="@+id/textView_position_positioning_server_option_colon"
                         app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintHorizontal_weight="4"
-                        app:layout_constraintStart_toEndOf="@+id/textView_position_positioning_server_option_colon"
-                        app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_port" />
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/textView_position_positioning_server_option_place" />
 
                     <TextView
                         android:id="@+id/textView_position_positioning_server_option_api_key"

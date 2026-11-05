@@ -62,23 +62,28 @@ public class PreferenceManager {
     public static void readPositionSetting(Context context) {
         Map<String, Object> settingMap = getPreferenceToMap(context, CommonDoc.Position.PREFER_SETTING_FILE);
 
-        // 측위 서버
-        CommonDoc.Position.positioningServerIp = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, "");
-        CommonDoc.Position.positioningServerPort = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT, "");
+        // 측위 서버. 주소에 포트까지 함께 저장한다 (예: http://example.com:8080)
+        String address = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, "");
+        address = address == null ? "" : address.trim();
+
+        // 이전 버전은 포트를 따로 저장했다. 남아 있으면 주소 뒤에 붙여 옮기고 지운다.
+        String legacyPort = (String) settingMap.get(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT);
+        if (legacyPort != null) {
+            legacyPort = legacyPort.trim();
+            if (!address.isEmpty() && !legacyPort.isEmpty()) {
+                address = address.replaceAll("/+$", "") + ":" + legacyPort;
+                setPreference(context, CommonDoc.Position.PREFER_SETTING_FILE, CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, address);
+            }
+            getPreference(context, CommonDoc.Position.PREFER_SETTING_FILE).edit()
+                    .remove(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT).commit();
+        }
+
+        CommonDoc.Position.positioningServerIp = address;
         CommonDoc.Position.positioningServerApiKey = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY, "");
 
         CommonDoc.Position.positioningServer = null;
-        if (CommonDoc.Position.positioningServerIp != null && !"".equals(CommonDoc.Position.positioningServerIp)) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(CommonDoc.Position.positioningServerIp);
-
-            if (CommonDoc.Position.positioningServerPort != null && !"".equals(CommonDoc.Position.positioningServerPort)) {
-                sb.append(":").append(CommonDoc.Position.positioningServerPort);
-            }
-
-            sb.append(CommonDoc.Position.POSITIONING_API_URI);
-
-            CommonDoc.Position.positioningServer = sb.toString();
+        if (!address.isEmpty()) {
+            CommonDoc.Position.positioningServer = address.replaceAll("/+$", "") + CommonDoc.Position.POSITIONING_API_URI;
         }
 
         CommonDoc.Position.target_type = (String) settingMap.getOrDefault(CommonDoc.Position.PREFER_KEY_TARGET_OPTION, "gps");

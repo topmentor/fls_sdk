@@ -200,7 +200,10 @@
         <TextView
             android:id="@+id/textView_position_receive_status"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
+            android:minHeight="50dp"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="5dp"
             android:layout_marginStart="10dp"
             android:background="@color/purple_500"
             android:gravity="center"

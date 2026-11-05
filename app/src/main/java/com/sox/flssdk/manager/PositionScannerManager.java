@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,14 +12,20 @@ import android.os.Message;
 import android.util.Log;
 
 import com.android.volley.AuthFailureError;
+import com.android.volley.NetworkError;
+import com.android.volley.NetworkResponse;
+import com.android.volley.NoConnectionError;
+import com.android.volley.ParseError;
 import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.RetryPolicy;
+import com.android.volley.TimeoutError;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 
 import com.sox.flssdk.CommonDoc;
 import com.sox.flssdk.fragment.position.PositionFragment;
+import com.sox.flssdk.model.PositionError;
 import com.sox.flssdk.scanner.BluetoothScanner;
 import com.sox.flssdk.scanner.GoogleFLPScanner;
 import com.sox.flssdk.scanner.GpsScanner;
@@ -29,12 +36,18 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.HashMap;
+
+import javax.net.ssl.SSLException;
 
 public class PositionScannerManager {
     private final Context mContext;
@@ -53,6 +66,8 @@ public class PositionScannerManager {
 
     Timer mScanTimer;
     TimerTask mScanTimerTask;
+
+    private static volatile PositionError sLastError;
 
 
     public PositionScannerManager(Context context, String server) {
@@ -108,6 +123,18 @@ public class PositionScannerManager {
 
         @Override
         public void run() {
+            try {
+                runOnce();
+            } catch (Exception e) {
+                // 수집값 정리나 요청 준비 중 예외. 잡지 않으면 Timer가 멈춰 화면이 "신호 수집중"에 머문다.
+                Log.e("ScanTimerTask", "Positioning internal error", e);
+                sendFailure(new PositionError(PositionError.TYPE_APP, "EXCEPTION",
+                        "측위 요청 준비 중 앱 내부 오류가 발생했습니다.", e.getClass().getSimpleName() + ": " + e.getMessage()));
+                stopScan();
+            }
+        }
+
+        private void runOnce() throws JSONException {
             JSONObject object = getResult();
 
 
@@ -143,7 +170,21 @@ public class PositionScannerManager {
                     } catch (JSONException ignore) {}
 
                     CommonDoc.writelog("request (scan data) : " + object.toString());
-                    
+
+                    if (mServer == null || mServer.trim().isEmpty()) {
+                        sendFailure(new PositionError(PositionError.TYPE_APP, "NO_SERVER",
+                                "측위 서버 주소가 설정되지 않았습니다.", null));
+                        stopScan();
+                        return;
+                    }
+
+                    if (!isInternetAvailable()) {
+                        sendFailure(new PositionError(PositionError.TYPE_NETWORK, "NO_NETWORK",
+                                "단말이 네트워크에 연결되어 있지 않습니다. Wi-Fi·모바일 데이터를 확인하세요.", null));
+                        stopScan();
+                        return;
+                    }
+
                     JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                         Request.Method.POST, 
                         mServer, 
@@ -156,13 +197,21 @@ public class PositionScannerManager {
                                 CommonDoc.writelog("receive location from server  : \n" + response.toString());
                                 ServerFLPManager.findLocation(statusObject, object, response);
 
+                                // 측위 실패·응답 형식 오류면 ServerFLPManager가 statusObject에 error를 넣는다.
+                                sLastError = PositionError.fromJson(statusObject.optJSONObject(PositionError.KEY));
+                                if (sLastError != null) {
+                                    Log.w("ScanTimerTask", "Positioning Result Error: " + sLastError);
+                                    CommonDoc.writelog("error : " + sLastError);
+                                }
+
                                 sendResultToFragment(CommonDoc.Position.HANDLER_SUCCEED_RESULT, statusObject);
                             }
                         }, 
                         new Response.ErrorListener() {
                             @Override
                             public void onErrorResponse(VolleyError error) {
-                                sendResultToFragment(CommonDoc.Position.HANDLER_FAILED_RESULT, null);
+                                Log.w("ScanTimerTask", "Positioning Server Error", error);
+                                sendFailure(describeError(error));
                             }
                         }
                     ) {
@@ -220,7 +269,17 @@ public class PositionScannerManager {
         }
     }
 
+    /**
+     * 가장 최근 측위 요청의 오류. 성공했거나 아직 요청하지 않았으면 null.
+     * 새 측위를 시작하면 null로 초기화된다.
+     */
+    public static PositionError getLastError() {
+        return sLastError;
+    }
+
     public void startScan() {
+        sLastError = null;
+
         this.mGpsScanner.startScan();
         this.mGFlpScanner.startScan();
         this.mLteScanner.startScan();
@@ -459,6 +518,115 @@ public class PositionScannerManager {
         return object;
     }
 
+    /**
+     * 실패를 기록하고 화면으로 보낸다. 오류 내용은 getLastError()로도 받을 수 있다.
+     */
+    private void sendFailure(PositionError error) {
+        sLastError = error;
+        Log.w("ScanTimerTask", "Positioning Error: " + error);
+        CommonDoc.writelog("error : " + error);
+
+        JSONObject failObject = new JSONObject();
+        try {
+            failObject.put("message", error.toDisplayText());
+            failObject.put(PositionError.KEY, error.toJson());
+        } catch (JSONException ignore) {
+        }
+        sendResultToFragment(CommonDoc.Position.HANDLER_FAILED_RESULT, failObject);
+    }
+
+    /**
+     * Volley 오류를 통신 오류 / 서버 오류 / 앱 오류로 나눈다.
+     */
+    private PositionError describeError(VolleyError error) {
+        String host = mServer;
+        try {
+            host = Uri.parse(mServer).getAuthority();
+        } catch (Exception ignore) {
+        }
+
+        NetworkResponse response = error.networkResponse;
+        if (response != null) {
+            // 서버까지 연결되어 HTTP 응답을 받은 경우
+            int status = response.statusCode;
+            String body = "";
+            if (response.data != null && response.data.length > 0) {
+                body = new String(response.data, StandardCharsets.UTF_8).trim().replaceAll("\\s+", " ");
+                if (body.length() > 200) {
+                    body = body.substring(0, 200) + "…";
+                }
+            }
+
+            if (error instanceof ParseError) {
+                return new PositionError(PositionError.TYPE_SERVER, "BAD_RESPONSE",
+                        "서버 응답이 JSON이 아닙니다. HTTP " + status, body, status);
+            }
+            if (status == 401 || status == 403) {
+                return new PositionError(PositionError.TYPE_SERVER, "HTTP_" + status,
+                        "인증 실패. API 키를 확인하세요.", body, status);
+            }
+            if (status == 404) {
+                return new PositionError(PositionError.TYPE_SERVER, "HTTP_404",
+                        "측위 API 경로를 찾을 수 없습니다. 서버 주소를 확인하세요.", body, status);
+            }
+            if (status >= 500) {
+                return new PositionError(PositionError.TYPE_SERVER, "HTTP_" + status,
+                        "서버 내부 오류입니다.", body, status);
+            }
+            return new PositionError(PositionError.TYPE_SERVER, "HTTP_" + status,
+                    "서버가 요청을 처리하지 못했습니다.", body, status);
+        }
+
+        if (error instanceof ParseError) {
+            return new PositionError(PositionError.TYPE_SERVER, "BAD_RESPONSE",
+                    "서버 응답이 JSON이 아닙니다.", causeText(error.getCause()));
+        }
+
+        if (error instanceof TimeoutError) {
+            return new PositionError(PositionError.TYPE_NETWORK, "TIMEOUT",
+                    (CommonDoc.ServerCall.WAIT_TIME / 1000) + "초 안에 서버 응답이 없습니다.", host);
+        }
+
+        Throwable cause = error.getCause();
+        String causeMsg = cause != null && cause.getMessage() != null ? cause.getMessage() : "";
+
+        if (cause instanceof UnknownHostException) {
+            return new PositionError(PositionError.TYPE_NETWORK, "UNKNOWN_HOST",
+                    "서버 이름을 찾을 수 없습니다. 주소를 확인하세요.", host);
+        }
+        if (cause instanceof ConnectException) {
+            return new PositionError(PositionError.TYPE_NETWORK, "CONNECT_FAILED",
+                    "서버에 연결할 수 없습니다. 주소·포트와 서버 동작 여부를 확인하세요.", host + " / " + causeMsg);
+        }
+        if (cause instanceof SocketTimeoutException) {
+            return new PositionError(PositionError.TYPE_NETWORK, "TIMEOUT",
+                    "서버 연결 시간이 초과되었습니다.", host);
+        }
+        if (cause instanceof SSLException) {
+            return new PositionError(PositionError.TYPE_NETWORK, "SSL",
+                    "보안 연결(SSL)에 실패했습니다.", causeMsg);
+        }
+        if (causeMsg.contains("Cleartext HTTP traffic")) {
+            return new PositionError(PositionError.TYPE_APP, "CLEARTEXT_BLOCKED",
+                    "앱 설정이 http 평문 통신을 막았습니다. https 주소를 쓰세요.", host);
+        }
+        if (causeMsg.startsWith("Bad URL")) {
+            return new PositionError(PositionError.TYPE_APP, "BAD_URL",
+                    "서버 주소 형식이 올바르지 않습니다.", mServer);
+        }
+        if (error instanceof NoConnectionError || error instanceof NetworkError) {
+            return new PositionError(PositionError.TYPE_NETWORK, "NETWORK",
+                    "네트워크 오류가 발생했습니다.", causeText(cause));
+        }
+
+        return new PositionError(PositionError.TYPE_APP, "UNKNOWN",
+                "알 수 없는 오류가 발생했습니다.", error.getClass().getSimpleName() + " / " + causeText(cause));
+    }
+
+    private static String causeText(Throwable cause) {
+        return cause == null ? "" : cause.getClass().getSimpleName() + ": " + cause.getMessage();
+    }
+
     public void sendResultToFragment(String status, JSONObject object) {
         if (PositionFragment.sScanReceiveHandler != null) {
             Handler handler = PositionFragment.sScanReceiveHandler;
@@ -471,7 +639,7 @@ public class PositionScannerManager {
                 bundle.putString(CommonDoc.Position.HANDLER_RESULT_KEY, object.toString());
             }
 
-            if (CommonDoc.Position.HANDLER_STATUS_UPDATE.equals(status) && object != null) {
+            if ((CommonDoc.Position.HANDLER_STATUS_UPDATE.equals(status) || CommonDoc.Position.HANDLER_FAILED_RESULT.equals(status)) && object != null) {
                 bundle.putString(CommonDoc.Position.HANDLER_RESULT_KEY, object.toString());
             }
 

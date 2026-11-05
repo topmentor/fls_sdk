@@ -21,6 +21,7 @@ import com.sox.flssdk.CommonDoc;
 import com.sox.flssdk.R;
 import com.sox.flssdk.activity.MainActivity;
 import com.sox.flssdk.manager.PositionScannerManager;
+import com.sox.flssdk.model.PositionError;
 import com.sox.flssdk.scanner.GpsScanner;
 import com.sox.flssdk.utils.DateTimeUtils;
 import com.sox.flssdk.utils.geo.CoordTransformUtil;
@@ -127,9 +128,18 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
 
                 // 서버 전송 실패 시
                 if (CommonDoc.Position.HANDLER_FAILED_RESULT.equals(status)) {
-                    fragment.mReceiveStatusTextView.setText("서버 전송 오류");
+                    String reason = "서버 전송 오류";
+                    String payload = bundle.getString(CommonDoc.Position.HANDLER_RESULT_KEY);
+                    if (payload != null) {
+                        try {
+                            reason = new JSONObject(payload).optString("message", reason);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    fragment.mReceiveStatusTextView.setText(reason);
 
-                    CommonDoc.writelog("서버 전송 오류 end \n");
+                    CommonDoc.writelog("end : " + reason + "\n");
                     CommonDoc.writeFile();
                     return;
                 }
@@ -190,7 +200,12 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
                             CommonDoc.writelog("response (fail) : \n" + response);
                         }
 
-                        fragment.mReceiveStatusTextView.setText(message + (findType == 30 ? "-T " : "") + " (" + String.format("%.1fm", serverDist) + ")");
+                        PositionError error = PositionError.fromJson(responseObject.optJSONObject(PositionError.KEY));
+                        if (error == null) {
+                            fragment.mReceiveStatusTextView.setText(message + (findType == 30 ? "-T " : "") + " (" + String.format("%.1fm", serverDist) + ")");
+                        } else {
+                            fragment.mReceiveStatusTextView.setText(error.toDisplayText());
+                        }
 
                         CommonDoc.writelog("end " + result);
                         CommonDoc.writeFile();
@@ -198,7 +213,8 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
                     } catch (JSONException e) {
                         e.printStackTrace();
 
-                        fragment.mReceiveStatusTextView.setText("JSON parse 오류");
+                        fragment.mReceiveStatusTextView.setText(new PositionError(PositionError.TYPE_APP, "RESULT_PARSE",
+                                "측위 결과를 화면에 표시하지 못했습니다.", e.getMessage()).toDisplayText());
                         CommonDoc.writelog("end : JSON parse 오류 \n");
                         CommonDoc.writeFile();
                     }

@@ -62,7 +62,7 @@ com.sox.flssdk
 ├── fragment/position/ PositionFragment, PositionSettingFragment
 ├── manager/           *Manager 클래스
 ├── scanner/           신호 수집
-├── model/             데이터 모델
+├── model/             데이터 모델, PositionError (측위 오류 정보)
 ├── utils/             DateTimeUtils
 └── utils/geo/         CoordTransformUtil, GPoint (거리 계산)
 ```
@@ -86,9 +86,11 @@ com.sox.flssdk
 | LocationDBService (SOX 서버) | 서버 복합측위 | `POST /LocationDBService/getPosition.do` |
 | Google Play Services Location | Fused Location Provider (GPS 보조) | — |
 
-서버 **주소와 포트**, **API 키**는 앱 내 **설정 화면** 또는 `PreferenceManager`로 지정합니다. API 키를 입력하면 측위 요청에 `X-API-KEY` 헤더로 실리고, 비워 두면 헤더를 넣지 않습니다.
-API 경로(`/LocationDBService/getPosition.do`)는 `CommonDoc.Position.POSITIONING_API_URI` 상수로 고정되어 있으며, 설정한 `주소:포트` 뒤에 붙습니다.
-입력칸을 비운 채 저장하면 hint 값(`http://example.com`, `8080`)이 그대로 저장되므로 실제 서버 주소를 입력해야 합니다.
+서버 **주소(포트 포함)**와 **API 키**는 앱 내 **설정 화면** 또는 `PreferenceManager`로 지정합니다. 포트는 주소에 함께 적습니다(예: `http://example.com:8080`). API 키를 입력하면 측위 요청에 `X-API-KEY` 헤더로 실리고, 비워 두면 헤더를 넣지 않습니다.
+API 경로(`/LocationDBService/getPosition.do`)는 `CommonDoc.Position.POSITIONING_API_URI` 상수로 고정되어 있으며, 설정한 주소 뒤에 붙습니다.
+저장할 때 주소 형식을 검사하며, 빈 칸은 저장하지 않습니다.
+
+측위 요청이 실패하면 화면에 원인 종류(측위 실패 / 서버 오류 / 통신 오류 / 앱 내부 오류)와 이유가 표시됩니다. 코드에서는 `PositionScannerManager.getLastError()`로 조회할 수 있습니다. 자세한 내용은 DEVELOPER_GUIDE.md 9절을 참고하세요.
 
 ---
 

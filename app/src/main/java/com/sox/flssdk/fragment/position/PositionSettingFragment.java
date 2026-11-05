@@ -1,5 +1,6 @@
 package com.sox.flssdk.fragment.position;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -25,7 +26,6 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
     MainActivity mMainActivity;
 
     EditText mPositioningServerOptionIp;
-    EditText mPositioningServerOptionPort;
     EditText mPositioningServerOptionApiKey;
 
     ImageButton mCloseButton;
@@ -39,7 +39,6 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
         mMainActivity = (MainActivity) getActivity();
 
         mPositioningServerOptionIp = view.findViewById(R.id.editText_position_positioning_server_option_ip);
-        mPositioningServerOptionPort = view.findViewById(R.id.editText_position_positioning_server_option_port);
         mPositioningServerOptionApiKey = view.findViewById(R.id.editText_position_positioning_server_option_api_key);
         mCloseButton = view.findViewById(R.id.imageButton_position_close_setting);
         mSaveButton = view.findViewById(R.id.imageButton_position_save_setting);
@@ -78,7 +77,11 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
             mMainActivity.changeFragment(mMainActivity.mPositionFragment);
 
         } else if (button == mSaveButton.getId()) {
-            applyHintsIfEmpty();
+            String addressError = checkServerAddress(mPositioningServerOptionIp.getText().toString().trim());
+            if (addressError != null) {
+                Toast.makeText(getContext(), addressError, Toast.LENGTH_LONG).show();
+                return;
+            }
 
             Map<String, Object> preferMap = getSetting();
             boolean isSaved = PreferenceManager.setPreferences(getContext(), CommonDoc.Position.PREFER_SETTING_FILE, preferMap);
@@ -103,22 +106,31 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
 
     public void setSetting() {
         mPositioningServerOptionIp.setText(CommonDoc.Position.positioningServerIp);
-        mPositioningServerOptionPort.setText(CommonDoc.Position.positioningServerPort);
         mPositioningServerOptionApiKey.setText(CommonDoc.Position.positioningServerApiKey);
     }
 
 
     /**
-     * 빈 필드에 hint 값을 채워 넣는다 (초기 상태 자동 완성)
+     * 서버 주소 형식 검사. 문제가 없으면 null, 있으면 화면에 보일 이유를 반환한다.
+     * 포트는 주소에 함께 적는다 (예: http://example.com:8080). 생략하면 http 80, https 443.
      */
-    private void applyHintsIfEmpty() {
-        fillIfEmpty(mPositioningServerOptionIp);
-        fillIfEmpty(mPositioningServerOptionPort);    }
-
-    private void fillIfEmpty(EditText field) {
-        if (field.getText().toString().trim().isEmpty() && field.getHint() != null) {
-            field.setText(field.getHint());
+    private String checkServerAddress(String address) {
+        if (address.isEmpty()) {
+            return "서버 주소를 입력해주세요. (예: http://example.com:8080)";
         }
+
+        Uri uri = Uri.parse(address);
+        String scheme = uri.getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            return "서버 주소는 http:// 또는 https:// 로 시작해야 합니다.";
+        }
+        if (uri.getHost() == null || uri.getHost().isEmpty()) {
+            return "서버 주소에 호스트가 없습니다.";
+        }
+        if (uri.getPort() == -1 && address.matches("^[a-zA-Z]+://[^/]*:.*")) {
+            return "포트 번호가 올바르지 않습니다.";
+        }
+        return null;
     }
 
     /**
@@ -128,8 +140,7 @@ public class PositionSettingFragment extends Fragment implements View.OnClickLis
     public Map<String, Object> getSetting() {
         Map<String, Object> preferMap = new HashMap<>();
 
-        preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, mPositioningServerOptionIp.getText().toString());
-        preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT, mPositioningServerOptionPort.getText().toString());
+        preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, mPositioningServerOptionIp.getText().toString().trim());
         preferMap.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY, mPositioningServerOptionApiKey.getText().toString().trim());
         preferMap.put(CommonDoc.Position.PREFER_KEY_TARGET_OPTION, "gps");
 

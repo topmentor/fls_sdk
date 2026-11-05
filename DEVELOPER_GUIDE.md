@@ -10,6 +10,7 @@
 6. [측위 결과 수신](#6-측위-결과-수신)
 7. [서버 설정](#7-서버-설정)
 8. [응답 JSON 구조](#8-응답-json-구조)
+9. [오류 구분과 조회](#9-오류-구분과-조회)
 
 ---
 
@@ -84,11 +85,13 @@ com.sox.flssdk
 │   └── MainActivity.java        # Fragment 컨테이너
 ├── fragment/position/
 │   ├── PositionFragment.java    # 측위 UI, 결과 수신 Handler
-│   └── PositionSettingFragment.java  # 서버 주소·포트 설정 화면
+│   └── PositionSettingFragment.java  # 서버 주소(포트 포함)·API 키 설정 화면
 ├── manager/
 │   ├── PositionScannerManager.java  # 측위 실행 진입점
 │   ├── ServerFLPManager.java        # 서버 측위 결과 처리
 │   └── PreferenceManager.java       # 서버 설정 저장/로드 (SharedPreferences)
+├── model/
+│   └── PositionError.java       # 측위 요청 오류 정보 (종류·코드·이유)
 ├── scanner/                     # 단말 신호 수집
 └── CommonDoc.java               # 전역 상수 및 로그 유틸
 ```
@@ -196,9 +199,11 @@ private final class ScanReceiveHandler extends Handler {
         // 1. 상태 키 확인
         String status = bundle.getString(CommonDoc.Position.HANDLER_STATUS_KEY);
 
-        // 서버 전송 실패
+        // 서버 응답을 받지 못함 (통신 오류, HTTP 오류, 앱 내부 오류)
         if (CommonDoc.Position.HANDLER_FAILED_RESULT.equals(status)) {
-            // 오류 처리
+            JSONObject failObj = new JSONObject(bundle.getString(CommonDoc.Position.HANDLER_RESULT_KEY));
+            PositionError error = PositionError.fromJson(failObj.optJSONObject(PositionError.KEY));
+            // error.type 으로 원인 구분, error.toDisplayText() 로 화면 표시 (9절)
             return;
         }
 
@@ -218,10 +223,13 @@ private final class ScanReceiveHandler extends Handler {
         // 서버 측위 결과
         if (CommonDoc.Position.HANDLER_POSITION_RESULT.equals(key)) {
             JSONObject result = new JSONObject(response);
-            int    resultCode = result.getInt("result_code");   // 0=성공, 999=실패
+            int    resultCode = result.getInt("result_code");   // 0=성공
             String resultMsg  = result.getString("result_msg");
             double sLatitude  = result.getDouble("s_latitude");
             double sLongitude = result.getDouble("s_longitude");
+
+            // 측위 실패·응답 형식 오류면 error 가 들어 있다 (9절)
+            PositionError error = PositionError.fromJson(result.optJSONObject(PositionError.KEY));
             // UI 업데이트
         }
     }
@@ -235,8 +243,8 @@ private final class ScanReceiveHandler extends Handler {
 | `HANDLER_STATUS_KEY` | `"status"` | 메시지 종류 구분 키 |
 | `HANDLER_KEY` | `"key"` | 측위 방식 구분 키 |
 | `HANDLER_RESULT_KEY` | `"result"` | JSON 결과 페이로드 키 |
-| `HANDLER_SUCCEED_RESULT` | `"succeed"` | 서버 응답 성공 |
-| `HANDLER_FAILED_RESULT` | `"failed"` | 서버 응답 실패 |
+| `HANDLER_SUCCEED_RESULT` | `"succeed"` | 서버 응답 수신 (측위 실패 응답 포함) |
+| `HANDLER_FAILED_RESULT` | `"failed"` | 서버 응답을 받지 못함. 페이로드에 `message`, `error` |
 | `HANDLER_STATUS_UPDATE` | `"status_update"` | 진행 상태 업데이트 |
 | `HANDLER_POSITION_RESULT` | `"position"` | 서버 측위 결과 |
 
@@ -244,7 +252,7 @@ private final class ScanReceiveHandler extends Handler {
 
 ## 7. 서버 설정
 
-설정 화면(`PositionSettingFragment`)에서는 **서버 주소, 포트, API 키**를 입력합니다. API 키는 비워 둘 수 있고, 입력하면 측위 요청에 `X-API-KEY` 헤더로 실립니다. `PreferenceManager`로 직접 지정할 수도 있습니다.
+설정 화면(`PositionSettingFragment`)에서는 **서버 주소(포트 포함)와 API 키**를 입력합니다. 포트는 주소에 함께 적습니다(예: `http://your-server.com:8080`). 포트를 생략하면 http는 80, https는 443으로 접속합니다. API 키는 비워 둘 수 있고, 입력하면 측위 요청에 `X-API-KEY` 헤더로 실립니다. `PreferenceManager`로 직접 지정할 수도 있습니다.
 API 경로는 입력받지 않고 코드 상수로 고정되어 있습니다.
 
 ```java
@@ -252,14 +260,15 @@ API 경로는 입력받지 않고 코드 상수로 고정되어 있습니다.
 public static final String POSITIONING_API_URI = "/LocationDBService/getPosition.do";
 ```
 
-입력칸을 비운 채 저장하면 hint 값(`http://example.com`, `8080`)이 그대로 저장됩니다. 실제 서버 주소를 반드시 입력하세요.
+저장할 때 주소 형식을 검사합니다. 비어 있거나, `http://`·`https://`로 시작하지 않거나, 포트가 숫자가 아니면 저장하지 않고 이유를 표시합니다. 입력칸의 hint(`http://example.com:8080`)는 예시일 뿐 저장되지 않습니다.
+
+이전 버전은 포트를 따로 저장했습니다(`positioning_server_option_port`). 이 값이 남아 있으면 `readPositionSetting()`이 처음 읽을 때 주소 뒤에 붙여 옮기고 포트 키를 지웁니다.
 
 ### SharedPreferences 키
 
 | 설정 항목 | 키 상수 |
 |----------|--------|
-| 측위 서버 주소 (예: `http://your-server.com`) | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP` |
-| 측위 서버 Port | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT` |
+| 측위 서버 주소, 포트 포함 (예: `http://your-server.com:8080`) | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP` |
 | API 키 (`X-API-KEY` 헤더) | `CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY` |
 
 ### 설정 저장 및 로드
@@ -267,8 +276,7 @@ public static final String POSITIONING_API_URI = "/LocationDBService/getPosition
 ```java
 // 저장
 Map<String, Object> settings = new HashMap<>();
-settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP,   "http://your-server.com");
-settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_PORT, "YOUR_PORT");
+settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_IP, "http://your-server.com:YOUR_PORT");
 settings.put(CommonDoc.Position.PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY, "YOUR_API_KEY");  // 선택
 PreferenceManager.setPreferences(context, CommonDoc.Position.PREFER_SETTING_FILE, settings);
 
@@ -297,10 +305,65 @@ String serverUrl = CommonDoc.Position.positioningServer;
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `result_code` | int | `0` = 성공, `999` = 실패 |
+| `result_code` | int | `0` = 성공. 그 밖의 값은 측위 실패 (`999` 등) |
 | `result_msg` | String | 결과 메시지 |
 | `s_latitude` | double | 측위 결과 위도 |
 | `s_longitude` | double | 측위 결과 경도 |
+| `error` | object | 실패일 때만 있음. 9절의 오류 정보 |
+
+---
+
+## 9. 오류 구분과 조회
+
+측위 요청이 실패하면 `PositionError`(`model/PositionError.java`)로 원인을 구분합니다.
+
+### 오류 종류 (`type`)
+
+| type | 화면 표시 | 뜻 | 대표 code |
+|------|-----------|----|-----------|
+| `positioning` | 측위 실패 | 서버는 정상 응답했고, 측위 결과가 성공(0)이 아님 | `RESULT_999`, `RESULT_888` |
+| `server` | 서버 오류 | 서버까지 연결됐지만 HTTP 오류이거나 응답 형식이 맞지 않음 | `HTTP_401`, `HTTP_404`, `HTTP_500`, `BAD_RESPONSE` |
+| `network` | 통신 오류 | 서버에 닿지 못함 | `NO_NETWORK`, `UNKNOWN_HOST`, `CONNECT_FAILED`, `TIMEOUT`, `SSL`, `NETWORK` |
+| `app` | 앱 내부 오류 | 설정 또는 앱 처리 오류 | `NO_SERVER`, `BAD_URL`, `CLEARTEXT_BLOCKED`, `EXCEPTION`, `RESULT_PARSE`, `UNKNOWN` |
+
+### 오류 정보 필드
+
+```json
+{
+  "type": "network",
+  "type_label": "통신 오류",
+  "code": "CONNECT_FAILED",
+  "message": "서버에 연결할 수 없습니다. 주소·포트와 서버 동작 여부를 확인하세요.",
+  "detail": "your-server.com:8080 / Failed to connect to ...",
+  "http_status": 0,
+  "time": 1793845927006
+}
+```
+
+- `detail`: 원인 예외 메시지, HTTP 응답 본문 앞부분(최대 200자) 등 추가 정보입니다.
+- `http_status`: HTTP 응답을 받은 경우에만 값이 있고, 아니면 `0`입니다.
+
+### 받는 방법
+
+1. **Handler 메시지**
+   - `HANDLER_FAILED_RESULT`의 페이로드: `{"message": "<표시용 문장>", "error": {...}}`
+   - `HANDLER_POSITION_RESULT` 결과 JSON: 측위 실패이거나 응답 형식 오류일 때 `error`가 들어 있습니다.
+2. **마지막 오류 조회**: `PositionScannerManager.getLastError()`. 가장 최근 요청의 `PositionError`를 반환하고, 성공했거나 아직 요청하지 않았으면 `null`입니다. `startScan()`을 호출할 때 `null`로 초기화됩니다.
+
+```java
+PositionError error = PositionScannerManager.getLastError();
+if (error != null) {
+    switch (error.type) {
+        case PositionError.TYPE_POSITIONING: /* 측위 실패: 서버 결과 코드 error.code */ break;
+        case PositionError.TYPE_SERVER:      /* 서버 문제: error.httpStatus */ break;
+        case PositionError.TYPE_NETWORK:     /* 통신 문제 */ break;
+        case PositionError.TYPE_APP:         /* 앱 설정·처리 문제 */ break;
+    }
+    String text = error.toDisplayText();  // "[통신 오류] 서버에 연결할 수 없습니다. ... (CONNECT_FAILED)"
+}
+```
+
+같은 내용은 logcat `ScanTimerTask` 태그와 측위 로그 파일에 `error : {...}`로도 남습니다.
 
 ---
 
@@ -352,7 +415,7 @@ public class MyPositioningActivity extends AppCompatActivity {
             String status = bundle.getString(CommonDoc.Position.HANDLER_STATUS_KEY);
 
             if (CommonDoc.Position.HANDLER_FAILED_RESULT.equals(status)) {
-                Log.e("TAG", "측위 실패");
+                Log.e("TAG", "측위 요청 실패: " + PositionScannerManager.getLastError());
                 return;
             }
 

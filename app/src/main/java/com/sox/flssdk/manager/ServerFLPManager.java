@@ -6,6 +6,7 @@ import android.util.Log;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
 
+import com.sox.flssdk.model.PositionError;
 import com.sox.flssdk.scanner.GoogleFLPScanner;
 import com.sox.flssdk.scanner.GpsScanner;
 import com.sox.flssdk.utils.DateTimeUtils;
@@ -63,23 +64,47 @@ public class ServerFLPManager {
                 statusObject.put("findtype", 0);
             }
 
+            // 서버는 정상 응답했지만 측위 결과가 성공(0)이 아닌 경우
+            if (result_code != 0) {
+                putError(new PositionError(PositionError.TYPE_POSITIONING, "RESULT_" + result_code, res_msg, null));
+            }
+
+        } catch (JSONException e) {
+            // 응답에 필요한 값(result_code, result_msg, result_data.pos_info 등)이 없음
+            e.printStackTrace();
+            putFallback(new PositionError(PositionError.TYPE_SERVER, "BAD_RESPONSE",
+                    "서버 응답에 필요한 값이 없습니다.", e.getMessage() + " / " + abbreviate(response)));
         } catch (Exception e) {
             e.printStackTrace();
-            try {
-                statusObject.put("result_code", 999);
-                statusObject.put("result_msg", "Error");
-                result_longitude = GpsScanner.sLongitude;
-                result_latitude = GpsScanner.sLatitude;
-                statusObject.put("s_latitude", result_latitude);
-                statusObject.put("s_longitude", result_longitude);
-                statusObject.put("findtype", 0);
-
-            } catch (JSONException ex) {
-            }
-            return;
+            putFallback(new PositionError(PositionError.TYPE_APP, "EXCEPTION",
+                    "서버 응답 처리 중 앱 내부 오류가 발생했습니다.", e.getClass().getSimpleName() + ": " + e.getMessage()));
         }
+    }
 
+    private static void putFallback(PositionError error) {
+        try {
+            statusObject.put("result_code", 999);
+            statusObject.put("result_msg", error.message);
+            result_longitude = GpsScanner.sLongitude;
+            result_latitude = GpsScanner.sLatitude;
+            statusObject.put("s_latitude", result_latitude);
+            statusObject.put("s_longitude", result_longitude);
+            statusObject.put("findtype", 0);
+        } catch (JSONException ignore) {
+        }
+        putError(error);
+    }
 
+    private static void putError(PositionError error) {
+        try {
+            statusObject.put(PositionError.KEY, error.toJson());
+        } catch (JSONException ignore) {
+        }
+    }
+
+    private static String abbreviate(JSONObject response) {
+        String text = response == null ? "null" : response.toString();
+        return text.length() > 200 ? text.substring(0, 200) + "…" : text;
     }
 
 

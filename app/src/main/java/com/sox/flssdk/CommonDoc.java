@@ -83,6 +83,7 @@ public class CommonDoc {
         public static final String HANDLER_STATUS_UPDATE = "status_update";
 
         public static final String PREFER_KEY_POSITIONING_SERVER_OPTION_IP = "positioning_server_option_ip";
+        // 이전 버전에서 포트를 따로 저장하던 키. 읽어서 주소로 옮긴 뒤 지운다.
         public static final String PREFER_KEY_POSITIONING_SERVER_OPTION_PORT = "positioning_server_option_port";
         public static final String PREFER_KEY_POSITIONING_SERVER_OPTION_API_KEY = "positioning_server_option_api_key";
 
@@ -96,8 +97,8 @@ public class CommonDoc {
         public static final String POSITIONING_API_URI = "/LocationDBService/getPosition.do";
 
         public static String positioningServer;
+        // 설정 화면에서 입력한 서버 주소 (포트 포함)
         public static String positioningServerIp;
-        public static String positioningServerPort;
         // 측위 요청 시 X-API-KEY 헤더로 보낸다. 비어 있으면 헤더를 넣지 않는다.
         public static String positioningServerApiKey;
 
