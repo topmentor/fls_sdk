@@ -43,7 +43,6 @@ FLS SDK는 단말의 신호 정보를 측위 서버로 보내고, 서버가 계�
 | 신규 프로젝트명 | `rootProject.name`, `*.iml` 파일명에 사용 (PascalCase, 공백 불가) | (필수) |
 | 신규 앱 표시명 | `strings.xml` 의 `app_name` | 프로젝트명 |
 | 신규 패키지 | 메인 소스 패키지 / `namespace` | `com.example.myapp` |
-| 신규 저장 디렉토리명 | 단말 `Downloads/` 하위 로그·모델 저장 폴더명 | 프로젝트명(대문자) |
 | applicationId | APK 패키지 식별자 | 신규 패키지와 동일 |
 | 대상 디렉토리 | 새 프로젝트가 생성될 경로 (원본 밖, 비어 있어야 함) | (필수) |
 
@@ -58,7 +57,7 @@ FLS SDK는 단말의 신호 정보를 측위 서버로 보내고, 서버가 계�
 ### 스크립트가 수행하는 작업
 
 1. **소스 복사** — `.git`, 빌드 산출물(`build`, `.gradle`), 런타임 디렉토리(`release`, `odd`) 등은 제외하고 복사합니다.
-2. **내용 치환** — 패키지(`com.sox.flssdk`), 프로젝트명(`SOXCollector`), 표시명(`FLS SDK`), 저장 디렉토리명(`FLSSDK`)을 신규 값으로 일괄 치환합니다.
+2. **내용 치환** — 패키지(`com.sox.flssdk`), 프로젝트명(`SOXCollector`), 표시명(`FLS SDK`)을 신규 값으로 일괄 치환합니다.
 3. **패키지 디렉토리 재편성** — `com/sox/flssdk` 디렉토리 구조를 신규 패키지 경로로 이동합니다.
 4. **파일명 변경** — `SOXCollector.app.iml` 처럼 프로젝트명이 포함된 파일명을 변경합니다.
 
@@ -93,7 +92,7 @@ com.sox.flssdk
 ├── model/
 │   └── PositionError.java       # 측위 요청 오류 정보 (종류·코드·이유)
 ├── scanner/                     # 단말 신호 수집
-└── CommonDoc.java               # 전역 상수 및 로그 유틸
+└── CommonDoc.java               # 전역 상수
 ```
 
 ---
@@ -130,6 +129,8 @@ com.sox.flssdk
 ```
 
 런타임 권한은 `IntroActivity`에서 요청합니다. 권한이 거부되어도 앱은 중단되지 않습니다.
+
+앱은 파일을 저장하지 않으므로 저장소 권한(`READ/WRITE_EXTERNAL_STORAGE`, `MANAGE_EXTERNAL_STORAGE`)은 선언하지 않습니다.
 
 ---
 
@@ -363,7 +364,11 @@ if (error != null) {
 }
 ```
 
-같은 내용은 logcat `ScanTimerTask` 태그와 측위 로그 파일에 `error : {...}`로도 남습니다.
+같은 내용은 logcat `ScanTimerTask` 태그에 `Positioning Error: {...}`로도 남습니다. 앱은 로그 파일을 저장하지 않습니다.
+
+### 화면 표시
+
+원본 화면(`PositionFragment`)은 오류가 나면 서버 측위 위도·경도 아래의 **오류 상세 패널**(`layout_position_error`)을 보이고, 종류·코드·내용·HTTP 상태·상세·시각을 표시합니다. 하단 상태 표시줄에는 `[종류] 내용` 요약만 나옵니다. 측위에 성공하거나 새로 측위를 시작하면 패널을 숨깁니다.
 
 ---
 
@@ -376,19 +381,15 @@ public class MyPositioningActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. 앱 컨텍스트 초기화
-        CommonDoc.init(this);
-
-        // 2. 저장된 서버 설정 로드
+        // 1. 저장된 서버 설정 로드
         PreferenceManager.readPositionSetting(this);
 
-        // 3. 결과 수신 Handler 등록
+        // 2. 결과 수신 Handler 등록
         PositionFragment.sScanReceiveHandler = new ResultHandler(this);
 
-        // 4. 서버 복합측위 실행
+        // 3. 서버 복합측위 실행
         if (CommonDoc.Position.positioningServer != null) {
             CommonDoc.Position.position_type = "server";
-            CommonDoc.startLogging("server");
 
             PositionScannerManager manager = new PositionScannerManager(
                     this,

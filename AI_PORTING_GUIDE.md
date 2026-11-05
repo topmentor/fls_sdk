@@ -42,9 +42,8 @@ C:\project\flssdk 의 AI_PORTING_GUIDE.md 를 먼저 끝까지 읽고 그대로 
 1. **라이선스**: 원본은 **GPL-3.0**이다. GPL 코드를 넣은 앱을 배포하면 그 앱도 GPL-3.0으로 소스를 공개해야 한다. 소스 공개 없이 상업 앱에 넣으려면 S.O.X Ltd. Co.와 별도 상용 라이선스 계약이 필요하다(soxcom@naver.com). 대상 앱이 어느 쪽인지 확인한다. 답을 받기 전에는 코드를 복사하지 않는다.
 2. **측위 서버 주소·포트**: 대상 앱에서 어떻게 정할지(고정값, 설정 화면, 원격 설정).
 3. **API 키(`X-API-KEY`)**: 어디에 두고 어떻게 넣을지. 에이전트는 키 값을 읽거나 출력하거나 커밋하지 않는다. 값이 필요하면 "필요함"이라고만 적고 사용자가 직접 넣게 한다.
-4. **로그 파일 저장 기능**을 유지할지 (4-7절). 유지하면 `MANAGE_EXTERNAL_STORAGE`가 필요하고 Play 스토어 정책 심사 대상이 된다.
-5. **BLE 미지원 단말**을 받을지. 원본 매니페스트는 `android.hardware.bluetooth_le`를 `required="true"`로 선언한다.
-6. **결과를 받는 화면**과 결과를 어떻게 보여 줄지.
+4. **BLE 미지원 단말**을 받을지. 원본 매니페스트는 `android.hardware.bluetooth_le`를 `required="true"`로 선언한다.
+5. **결과를 받는 화면**과 결과·오류 상세(5-1절)를 어떻게 보여 줄지.
 
 ---
 
@@ -66,7 +65,6 @@ C:\project\flssdk 의 AI_PORTING_GUIDE.md 를 먼저 끝까지 읽고 그대로 
 | `manager/ServerManager.java` | Volley `RequestQueue` 싱글턴 | Volley |
 | `manager/ServerFLPManager.java` | 서버 응답 해석 | `requestDevice_II1`, `GpsScanner`, `GoogleFLPScanner`, `DateTimeUtils` |
 | `manager/requestDevice_II1.java` | 요청 데이터 모델 | `DateTimeUtils`, `CoordTransformUtil`, `GPoint` |
-| `manager/FileManager.java` | 로그 파일 쓰기 | `CommonDoc`, `DateTimeUtils` |
 | `utils/DateTimeUtils.java` | 날짜·시간 | — |
 | `utils/geo/CoordTransformUtil.java` | 좌표 간 거리 | `GPoint`, proj4j |
 | `utils/geo/dataobject/GPoint.java` | 좌표 객체 | — |
@@ -75,7 +73,7 @@ C:\project\flssdk 의 AI_PORTING_GUIDE.md 를 먼저 끝까지 읽고 그대로 
 
 | 파일 | 고칠 점 | 절 |
 |------|---------|-----|
-| `CommonDoc.java` | 상수와 로그 기능만 남긴다. 화면·앱 전용 부분 정리 | 4-6, 4-7 |
+| `CommonDoc.java` | 상수만 담고 있다. 대상 앱이 쓰지 않는 필드 정리 | 4-6 |
 | `scanner/GoogleFLPScanner.java` | `(MainActivity)mContext` 형변환 제거 | 4-4 |
 | `manager/PositionScannerManager.java` | `PositionFragment.sScanReceiveHandler` 직접 참조를 콜백으로 교체 | 4-5 |
 | `manager/PreferenceManager.java` | 선택. 대상 앱의 설정 방식을 쓰면 가져오지 않고 4-6절대로 값을 넣는다 | 4-6 |
@@ -115,13 +113,14 @@ implementation 'org.locationtech.proj4j:proj4j:1.4.1'
 
 - 꼭 필요: `INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `ACCESS_NETWORK_STATE`, `READ_PHONE_STATE`, `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE`, `BLUETOOTH`, `BLUETOOTH_ADMIN`, `BLUETOOTH_SCAN`(neverForLocation), `BLUETOOTH_CONNECT`.
 - 원본 그대로 옮기되 사용자에게 알릴 것: `NEARBY_WIFI_DEVICES`, `BLUETOOTH_PRIVILEGED`, `FOREGROUND_SERVICE`.
-- 2절 답에 따를 것: 저장소 권한 3종(4-7절), `uses-feature bluetooth_le`의 `required` 값.
+- 2절 답에 따를 것: `uses-feature bluetooth_le`의 `required` 값.
+- 저장소 권한은 옮기지 않는다 (4-7절).
 - 측위 서버가 `http://` 이면 평문 통신 허용이 필요하다. 원본은 `android:usesCleartextTraffic="true"`를 쓴다. 대상 앱에서는 앱 전체를 열지 말고 `network_security_config`로 해당 도메인만 허용하는 것을 우선 제안한다.
 
 ### 4-4. 런타임 권한
 
-- 원본이 시작 화면에서 요청하는 권한은 `IntroActivity.PERMISSIONS`에 있다: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`, `WRITE_EXTERNAL_STORAGE`. 원본은 GPS가 켜져 있는지도 확인한다.
-- 대상 앱의 권한 요청 흐름에 이 권한들을 넣고, **권한이 허용된 뒤에만** 측위를 시작하게 한다. 저장소 권한은 4-7절 결정에 따른다.
+- 원본이 시작 화면에서 요청하는 권한은 `IntroActivity.PERMISSIONS`에 있다: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN`. 원본은 GPS가 켜져 있는지도 확인한다.
+- 대상 앱의 권한 요청 흐름에 이 권한들을 넣고, **권한이 허용된 뒤에만** 측위를 시작하게 한다.
 - `GoogleFLPScanner.checkLocationPermission()`은 `ActivityCompat.requestPermissions((MainActivity)mContext, ...)`를 호출한다. 대상 앱에는 `MainActivity`가 없거나 다른 클래스라서 컴파일 오류나 `ClassCastException`이 난다. 다음 둘 중 하나로 고친다.
   - (권장) 권한 요청은 대상 앱이 미리 끝낸다는 전제로 이 요청 코드를 지우고, 권한이 없으면 아무것도 하지 않게 둔다. `startScan()`에 이미 권한 검사가 있다.
   - `mContext instanceof Activity`일 때만 `(Activity) mContext`로 요청한다.
@@ -194,13 +193,12 @@ public void sendResultToFragment(String status, JSONObject object) {
 - `CommonDoc`에서 대상 앱이 쓰지 않는 필드(`REQUEST_ONDEVICE_MODEL_URL`, `MODEL_DOWNLOAD_DIRECTORY`, `ServerCall.DEFAULT_*`, `WAIT_TIME2`, `RETRY2`, `target_type`)는 지워도 된다. 지운 뒤 빌드로 참조가 없는지 확인한다.
 - `CommonDoc.Scanner`, `CommonDoc.Position.SCAN_INTERVAL`, `CommonDoc.ServerCall.WAIT_TIME`/`RETRY` 값은 **바꾸지 않는다** (7절).
 
-### 4-7. 로그 파일 (선택)
+### 4-7. 파일 저장 없음
 
-원본은 측위 1회마다 `CommonDoc.startLogging()` → `writelog()` → `writeFile()`로 `Downloads/FLSSDK/Log/server_*.txt`를 남기고 토스트를 띄운다. 이 기능은 `MANAGE_EXTERNAL_STORAGE`와 `CommonDoc.init(context)` 호출이 필요하다.
+원본은 단말에 파일을 저장하지 않는다. 측위 로그 파일과 비정상 종료 로그 파일 기능은 2026-11-05 사용자 결정으로 제거했다. 그래서 저장소 권한(`READ/WRITE_EXTERNAL_STORAGE`, `MANAGE_EXTERNAL_STORAGE`)도 쓰지 않는다.
 
-- **유지**: 앱 시작 시 `CommonDoc.init(getApplicationContext())`를 호출하고 저장소 권한 흐름을 넣는다. 폴더 이름 `FLSSDK`는 사용자와 정해 바꾼다.
-- **제거(일반 배포 앱 권장)**: `writeFile()`이 파일을 쓰지 않게 하거나 로그 호출을 지운다. `PositionScannerManager`의 `CommonDoc.writelog(...)` 호출은 메모리에만 쌓이므로 남겨 둬도 동작에는 영향이 없다. 남길지 지울지 사용자에게 알린다. 이 경우 `FileManager`와 저장소 권한은 필요 없다.
-- 로그에는 요청 본문 전체가 들어간다. 배포 앱에서 로그를 남기면 개인정보 관점에서 사용자 확인이 필요하다고 보고한다.
+- 이식할 때 로그 파일 저장이나 저장소 권한을 새로 넣지 않는다. 필요해 보이면 사용자에게 먼저 묻는다.
+- 오류 확인은 `PositionError`(5-1절)와 logcat `ScanTimerTask` 태그로 한다.
 
 ### 4-8. 측위 실행
 
@@ -253,7 +251,7 @@ manager.startScan();
 
 ### 5-1. 오류 정보 (`PositionError`)
 
-요청이 실패하면 원인을 네 종류로 나눈 `PositionError`가 만들어진다. 대상 앱 화면에도 종류와 이유를 함께 보여 주게 구현한다. "오류"라고만 표시하지 않는다.
+요청이 실패하면 원인을 네 종류로 나눈 `PositionError`가 만들어진다. 대상 앱 화면에도 종류와 이유를 함께 보여 주게 구현한다. "오류"라고만 표시하지 않는다. 원본 화면은 서버 측위 결과 아래에 오류일 때만 보이는 상세 패널을 두고(`PositionFragment.showError()` / `hideError()`), 하단 상태 표시줄에는 `[종류] 내용` 요약만 둔다. 대상 앱도 이 방식을 기본안으로 제안한다.
 
 | `type` | 뜻 | 전달 경로 |
 |--------|----|-----------|
@@ -309,4 +307,4 @@ manager.startScan();
 - 가져온 파일 / 고친 파일 / 가져오지 않은 파일 목록과 이유
 - 대상 앱에서 바꾼 설정: Gradle, 매니페스트, 권한 흐름, 네트워크 보안
 - 검증 결과: 8절 항목별로 "확인함 / 실패 / 시험 안 함"을 나눠 적는다. 시험하지 못한 항목은 이유와 함께 "미확인"으로 적는다
-- 남은 결정 사항 (예: 측위 제한 시간, 로그 유지 여부, 라이선스 표기)
+- 남은 결정 사항 (예: 측위 제한 시간, 라이선스 표기)

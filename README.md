@@ -46,7 +46,6 @@
 [ Manager ]         PositionScannerManager   측위 실행 진입점
                     ServerFLPManager          서버 측위 결과 처리
                     PreferenceManager         설정 저장/로드 (SharedPreferences)
-                    FileManager               로그 파일 I/O
                     ServerManager             HTTP 통신 (Volley)
                                                 │
 [ Scanner ]     단말 신호 수집 (scanner/)
@@ -71,7 +70,7 @@ com.sox.flssdk
 
 ## 4. 데이터 흐름
 
-1. **IntroActivity** — 위치·블루투스·저장소 권한 요청 및 GPS 활성화 확인 후 MainActivity 진입.
+1. **IntroActivity** — 위치·블루투스 권한 요청 및 GPS 활성화 확인 후 MainActivity 진입.
 2. **MainActivity** — `PreferenceManager.readPositionSetting()`으로 SharedPreferences에서 서버 주소 로드, `PositionFragment` 바로 표시.
 3. 사용자가 **복합측위 시험** 버튼을 누르면 `PositionScannerManager.startScan()` 호출.
 4. Volley HTTP POST → 서버 응답 JSON 수신 → `PositionFragment.ScanReceiveHandler`로 전달.
@@ -90,7 +89,7 @@ com.sox.flssdk
 API 경로(`/LocationDBService/getPosition.do`)는 `CommonDoc.Position.POSITIONING_API_URI` 상수로 고정되어 있으며, 설정한 주소 뒤에 붙습니다.
 저장할 때 주소 형식을 검사하며, 빈 칸은 저장하지 않습니다.
 
-측위 요청이 실패하면 화면에 원인 종류(측위 실패 / 서버 오류 / 통신 오류 / 앱 내부 오류)와 이유가 표시됩니다. 코드에서는 `PositionScannerManager.getLastError()`로 조회할 수 있습니다. 자세한 내용은 DEVELOPER_GUIDE.md 9절을 참고하세요.
+측위 실패나 오류가 나면 서버 측위 위도·경도 아래에 **오류 상세 패널**이 나타나 원인 종류(측위 실패 / 서버 오류 / 통신 오류 / 앱 내부 오류), 코드, 이유, 상세 내용을 보여 줍니다. 성공하거나 새로 측위를 시작하면 패널은 숨겨집니다. 하단 상태 표시줄에는 요약만 나옵니다. 코드에서는 `PositionScannerManager.getLastError()`로 조회할 수 있습니다. 자세한 내용은 DEVELOPER_GUIDE.md 9절을 참고하세요.
 
 ---
 
@@ -121,26 +120,20 @@ API 경로(`/LocationDBService/getPosition.do`)는 `CommonDoc.Position.POSITIONI
 | `BLUETOOTH_PRIVILEGED` | BLE 확장 권한 |
 | `INTERNET` | 서버 통신 |
 | `FOREGROUND_SERVICE` | 백그라운드 실행 |
-| `READ/WRITE_EXTERNAL_STORAGE`, `MANAGE_EXTERNAL_STORAGE` | 로그 파일 저장 |
 
 ---
 
-## 8. 파일 저장 경로
+## 8. 단말 저장 데이터
 
-모든 파일은 `Downloads/FLSSDK/` 하위에 저장됩니다 (`MANAGE_EXTERNAL_STORAGE` 권한 필요).
+앱은 단말에 파일을 저장하지 않습니다. 측위 로그와 오류 로그는 파일로 남기지 않고, 측위 결과는 서버 응답으로만 받습니다. 저장하는 것은 설정 값(SharedPreferences `flssdk_position`: 서버 주소, API 키)뿐이며, 그래서 저장소 권한을 요청하지 않습니다.
 
-| 경로 | 내용 |
-|------|------|
-| `Downloads/FLSSDK/Log/` | 측위 로그 텍스트 파일 (`server_*.txt`) |
-| `Downloads/FLSSDK/exception/` | 비정상 종료 스택 트레이스 |
-
-앱은 단말에 로컬 DB를 두지 않습니다. 측위 결과는 서버 응답으로만 받습니다.
+오류 내용은 화면의 오류 상세 패널과 logcat(`ScanTimerTask` 태그)에서 확인합니다.
 
 ---
 
 ## 9. 템플릿으로 신규 프로젝트 생성
 
-이 저장소를 템플릿으로 새 Android 프로젝트를 만들려면 루트의 `new-project.ps1` 스크립트를 사용합니다. 패키지명·프로젝트명·표시명·저장 디렉토리명을 일괄 치환하고 소스 패키지 디렉토리 구조까지 재편성해, 복사 직후 바로 빌드 가능한 독립 프로젝트를 생성합니다.
+이 저장소를 템플릿으로 새 Android 프로젝트를 만들려면 루트의 `new-project.ps1` 스크립트를 사용합니다. 패키지명·프로젝트명·표시명을 일괄 치환하고 소스 패키지 디렉토리 구조까지 재편성해, 복사 직후 바로 빌드 가능한 독립 프로젝트를 생성합니다.
 
 ```powershell
 # 대화형 (프로젝트명·패키지·대상 경로 등을 차례로 입력)

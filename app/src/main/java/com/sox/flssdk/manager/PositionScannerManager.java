@@ -142,14 +142,9 @@ public class PositionScannerManager {
                 (!object.isNull(CommonDoc.Scanner.WIFI_SCAN_RESULT_KEY) ||
                  !object.isNull(CommonDoc.Scanner.BLE_SCAN_RESULT_KEY))) {
 
-
-                CommonDoc.writelog("target type : gps");
-
                 try {
                     object.put("tLongitude", GpsScanner.sLongitude);
                     object.put("tLatitude", GpsScanner.sLatitude);
-
-                    CommonDoc.writelog("target location : " + String.format("%.6f", GpsScanner.sLongitude) + " , " + String.format("%.6f", GpsScanner.sLatitude));
 
                 } catch(Exception e){
                 }
@@ -169,7 +164,6 @@ public class PositionScannerManager {
                         sendResultToFragment(CommonDoc.Position.HANDLER_STATUS_UPDATE, progressStatus);
                     } catch (JSONException ignore) {}
 
-                    CommonDoc.writelog("request (scan data) : " + object.toString());
 
                     if (mServer == null || mServer.trim().isEmpty()) {
                         sendFailure(new PositionError(PositionError.TYPE_APP, "NO_SERVER",
@@ -194,14 +188,12 @@ public class PositionScannerManager {
                             public void onResponse(JSONObject response) {
                                 Log.i("ScanTimerTask", "Receive Location Data - Server");
 
-                                CommonDoc.writelog("receive location from server  : \n" + response.toString());
                                 ServerFLPManager.findLocation(statusObject, object, response);
 
                                 // 측위 실패·응답 형식 오류면 ServerFLPManager가 statusObject에 error를 넣는다.
                                 sLastError = PositionError.fromJson(statusObject.optJSONObject(PositionError.KEY));
                                 if (sLastError != null) {
                                     Log.w("ScanTimerTask", "Positioning Result Error: " + sLastError);
-                                    CommonDoc.writelog("error : " + sLastError);
                                 }
 
                                 sendResultToFragment(CommonDoc.Position.HANDLER_SUCCEED_RESULT, statusObject);
@@ -524,7 +516,6 @@ public class PositionScannerManager {
     private void sendFailure(PositionError error) {
         sLastError = error;
         Log.w("ScanTimerTask", "Positioning Error: " + error);
-        CommonDoc.writelog("error : " + error);
 
         JSONObject failObject = new JSONObject();
         try {

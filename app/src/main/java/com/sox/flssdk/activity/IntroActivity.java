@@ -7,7 +7,6 @@ import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.provider.Settings;
 import android.widget.Toast;
@@ -29,11 +28,9 @@ public class IntroActivity extends AppCompatActivity {
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
+            Manifest.permission.BLUETOOTH_SCAN
     };
 
-    private boolean mEnableExternalStorage;
     private boolean mEnablePublicPermission;
     private boolean mEnableGps;
 
@@ -59,7 +56,6 @@ public class IntroActivity extends AppCompatActivity {
         super.onResume();
 
         // 권한 설정 확인
-        mEnableExternalStorage = isEnableExternalStorage();
         mEnablePublicPermission = isEnablePublicPermission();
         mEnableGps = isEnableGps();
 
@@ -68,9 +64,7 @@ public class IntroActivity extends AppCompatActivity {
         } else {
             if (mIsRequestPermission) {
                 // 권한 요청을 한 경우
-                if (!mEnableExternalStorage) {
-                    Toast.makeText(this, "모든 파일에 접근 확인 권한을 설정해주세요.", Toast.LENGTH_SHORT).show();
-                } else if (!mEnablePublicPermission) {
+                if (!mEnablePublicPermission) {
                     Toast.makeText(this, "권한을 설정해주세요.", Toast.LENGTH_SHORT).show();
                 }
 
@@ -98,7 +92,7 @@ public class IntroActivity extends AppCompatActivity {
      * @return
      */
     private boolean checkPermissions() {
-        return mEnableExternalStorage && mEnablePublicPermission;
+        return mEnablePublicPermission;
     }
 
 
@@ -106,22 +100,9 @@ public class IntroActivity extends AppCompatActivity {
      * 권한 요청
      */
     private void requestPermissions() {
-        if (!mEnableExternalStorage) {
-            showExternalStorageSetting();
-        }
-
         if (!mEnablePublicPermission) {
             showPermissionSetting();
         }
-    }
-
-
-    /**
-     * 모든 파일 접근 권한 활성화 여부 확인
-     * @return
-     */
-    private boolean isEnableExternalStorage() {
-        return Environment.isExternalStorageManager();
     }
 
 
@@ -151,17 +132,6 @@ public class IntroActivity extends AppCompatActivity {
         LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
         return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-    }
-
-
-    /**
-     * 모든 파일에 대한 접근 화면으로 이동
-     */
-    private void showExternalStorageSetting() {
-        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-        intent.addCategory("android.intent.category.DEFAULT");
-        intent.setData(Uri.parse(String.format("package:%s", getApplicationContext().getPackageName())));
-        startActivity(intent);
     }
 
 

@@ -7,7 +7,7 @@
     디렉토리에 복사하고 다음을 일괄 치환/재편성합니다.
 
       1. 소스 파일 복사 (.git, 빌드 산출물, 런타임 디렉토리 제외)
-      2. 플랫폼 설정값 치환 (저장 디렉토리명, applicationId, 서버 도메인 힌트 등)
+      2. 플랫폼 설정값 치환 (applicationId, 서버 도메인 힌트 등)
       3. Java 패키지 일괄 치환 (com.sox.flssdk → 신규 패키지)
       4. 프로젝트명 일괄 치환 (SOXCollector / FLS SDK → 신규 프로젝트명)
       5. 소스 패키지 디렉토리 구조 재편성 (com/sox/flssdk → 새/패키지)
@@ -30,7 +30,6 @@ param(
     [string] $ProjectName,
     [string] $DisplayName,
     [string] $Package,
-    [string] $StorageDir,
     [string] $ApplicationId,
     # -Yes: 확인 프롬프트 없이 진행 (비대화형)
     [switch] $Yes
@@ -50,7 +49,6 @@ $SRC_TEST_PKG   = 'net.stayonbox.soxcollector'  # test / androidTest 패키지
 $SRC_EXT_PKG    = 'net.flssdk.app'              # 루트 build.gradle ext.flsSDK (미사용 보조 토큰)
 $SRC_GRADLE_NM  = 'SOXCollector'                # settings.gradle rootProject.name / *.iml 파일명
 $SRC_APP_NAME   = 'FLS SDK'                      # strings.xml app_name
-$SRC_STORAGE    = 'FLSSDK'                       # CommonDoc.java 저장 디렉토리명
 $SRC_DOMAIN     = 'example.com'            # fragment_position_setting.xml 서버 URL hint
 
 # 내용 치환 대상 텍스트 확장자 (그 외 확장자는 바이너리로 간주해 스킵)
@@ -158,12 +156,6 @@ $Package = Read-Value -Prompt '신규 패키지' `
     -Current $Package -Default 'com.example.myapp' -Required -Validator $PkgValidator `
     -ValidatorMsg '소문자 패키지 형식이어야 합니다 (예: com.example.myapp).'
 
-$defaultStorage = ($ProjectName -replace '[^A-Za-z0-9]', '').ToUpper()
-$StorageDir = Read-Value -Prompt '신규 저장 디렉토리명 (Downloads 하위)' `
-    -Current $StorageDir -Default $defaultStorage -Required `
-    -Validator { param($v) $v -match '^[A-Za-z0-9_\-]+$' } `
-    -ValidatorMsg '영숫자/언더스코어/하이픈만 사용하세요.'
-
 $ApplicationId = Read-Value -Prompt 'applicationId' `
     -Current $ApplicationId -Default $Package -Required -Validator $PkgValidator `
     -ValidatorMsg '소문자 패키지 형식이어야 합니다.'
@@ -192,7 +184,6 @@ $summary = [ordered]@{
     '메인 패키지 (com.sox.flssdk →)'     = $Package
     '테스트 패키지 (net.stayonbox.* →)'  = $Package
     'applicationId'                      = $ApplicationId
-    '저장 디렉토리 (FLSSDK →)'           = $StorageDir
     '대상 디렉토리'                       = $DestFull
 }
 $summary.GetEnumerator() | ForEach-Object { Write-Host ("    {0,-34}: {1}" -f $_.Key, $_.Value) }
@@ -236,8 +227,8 @@ $pkgSlashSrcMain = $SRC_MAIN_PKG.Replace('.', '/')
 $pkgSlashSrcTest = $SRC_TEST_PKG.Replace('.', '/')
 $pkgSlashDst     = $Package.Replace('.', '/')
 
-# 대소문자 구분(Ordinal) OrderedDictionary — 'flssdk'(leaf)와 'FLSSDK'(저장명)를
-# 서로 다른 키로 취급해야 하므로 [ordered]@{}(대소문자 무시) 대신 명시적으로 생성.
+# 대소문자 구분(Ordinal) OrderedDictionary — 소문자 'flssdk'(leaf)만 치환하고 대문자 표기는
+# 건드리지 않아야 하므로 [ordered]@{}(대소문자 무시) 대신 명시적으로 생성.
 $replaceMap = New-Object System.Collections.Specialized.OrderedDictionary([System.StringComparer]::Ordinal)
 $replaceMap[$SRC_MAIN_PKG]   = $Package           # com.sox.flssdk → 신규 패키지
 $replaceMap[$pkgSlashSrcMain] = $pkgSlashDst       # com/sox/flssdk → 신규 패키지 경로
@@ -250,7 +241,6 @@ $pkgLeaf = ($Package -split '\.')[-1]
 $replaceMap['flssdk']        = $pkgLeaf            # flssdk_position → <leaf>_position
 $replaceMap[$SRC_GRADLE_NM]  = $ProjectName       # SOXCollector → 프로젝트명
 $replaceMap[$SRC_APP_NAME]   = $DisplayName       # FLS SDK → 앱 표시명
-$replaceMap[$SRC_STORAGE]    = $StorageDir        # FLSSDK → 저장 디렉토리명
 # 서버 도메인은 코드에 박히지 않고 런타임 설정 화면에서 입력된다. 원본의
 # 회사 도메인이 힌트(android:hint)로 새 프로젝트에 남지 않도록 중립 예시로만 치환.
 $replaceMap[$SRC_DOMAIN]     = 'example.com'       # example.com → example.com (UI 힌트)
@@ -332,7 +322,6 @@ Write-Step '파일명 변경'
 # 파일/디렉토리 이름에 포함된 토큰을 신규 값으로 치환 (긴 이름 우선)
 $nameMap = [ordered]@{
     $SRC_GRADLE_NM = $ProjectName    # SOXCollector → 프로젝트명 (예: SOXCollector.app.iml)
-    $SRC_STORAGE   = $StorageDir     # FLSSDK → 저장 디렉토리명
 }
 # 깊은 경로부터 처리 (디렉토리 이름 변경이 하위 경로에 영향 주지 않도록)
 $renamed = 0

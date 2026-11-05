@@ -10,16 +10,10 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 
-import com.sox.flssdk.CommonDoc;
 import com.sox.flssdk.R;
 import com.sox.flssdk.fragment.position.PositionFragment;
-import com.sox.flssdk.manager.FileManager;
 import com.sox.flssdk.manager.PreferenceManager;
-import com.sox.flssdk.utils.DateTimeUtils;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_NEARBY_WIFI_DEVICES = 1001;
@@ -33,9 +27,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // CommonDoc 초기화
-        CommonDoc.init(this);
-
         mPositionFragment = new PositionFragment();
 
         // 설정 읽어오기
@@ -43,9 +34,6 @@ public class MainActivity extends AppCompatActivity {
 
         // 측위시험 Fragment로 직접 시작
         changeFragment(mPositionFragment);
-
-        // 애플리케이션 비정상 종료 시, Exception 내용을 파일로 저장
-        Thread.setDefaultUncaughtExceptionHandler(new ExceptionHandler());
 
         // Android 12+ 권한 요청
         requestAndroid12Permissions();
@@ -118,26 +106,4 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-    /**
-     * 비정상 종료 Exception Catch
-     */
-    class ExceptionHandler implements Thread.UncaughtExceptionHandler {
-
-        @Override
-        public void uncaughtException(@NonNull Thread t, @NonNull Throwable e) {
-            String fileName = "log_" + DateTimeUtils.getTimeDateNow2() + ".txt";
-
-            StringWriter stringWriter = new StringWriter();
-            e.printStackTrace(new PrintWriter(stringWriter));
-            String message = stringWriter.toString();
-
-            try {
-                FileManager fileManager = new FileManager(CommonDoc.FILE_DOWNLOAD_PATH + CommonDoc.EXCEPTION_DIRECTORY);
-                fileManager.write(fileName, message, false);
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
-        }
-    }
 }

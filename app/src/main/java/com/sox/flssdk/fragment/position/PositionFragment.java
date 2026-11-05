@@ -48,6 +48,10 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
     TextView mLongitudeTextView;
     TextView mReceiveStatusTextView;
 
+    View mErrorLayout;
+    TextView mErrorTitleTextView;
+    TextView mErrorDetailTextView;
+
     Button mPositioningButton;
     ImageButton mSettingButton;
 
@@ -72,6 +76,9 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
         mLatitudeTextView = view.findViewById(R.id.textView_position_latitude);
         mLongitudeTextView = view.findViewById(R.id.textView_position_longitude);
         mReceiveStatusTextView = view.findViewById(R.id.textView_position_receive_status);
+        mErrorLayout = view.findViewById(R.id.layout_position_error);
+        mErrorTitleTextView = view.findViewById(R.id.textView_position_error_title);
+        mErrorDetailTextView = view.findViewById(R.id.textView_position_error_detail);
 
         mPositioningButton = view.findViewById(R.id.button_position_send_positioning);
         mSettingButton = view.findViewById(R.id.imageButton_position_setting);
@@ -128,19 +135,20 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
 
                 // 서버 전송 실패 시
                 if (CommonDoc.Position.HANDLER_FAILED_RESULT.equals(status)) {
-                    String reason = "서버 전송 오류";
+                    PositionError error = null;
                     String payload = bundle.getString(CommonDoc.Position.HANDLER_RESULT_KEY);
                     if (payload != null) {
                         try {
-                            reason = new JSONObject(payload).optString("message", reason);
+                            error = PositionError.fromJson(new JSONObject(payload).optJSONObject(PositionError.KEY));
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
                     }
-                    fragment.mReceiveStatusTextView.setText(reason);
+                    if (error == null) {
+                        error = new PositionError(PositionError.TYPE_APP, "UNKNOWN", "측위 요청이 실패했습니다.", null);
+                    }
+                    fragment.showError(error);
 
-                    CommonDoc.writelog("end : " + reason + "\n");
-                    CommonDoc.writeFile();
                     return;
                 }
 
@@ -170,9 +178,6 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
                     double latitude = GpsScanner.sLatitude;
                     double longitude = GpsScanner.sLongitude;
 
-                    CommonDoc.writelog("GPS Location  : " + String.format("%.6f", longitude) + " , " + String.format("%.6f", latitude));
-                    CommonDoc.writelog("Target Location  : " + String.format("%.6f", longitude) + " , " + String.format("%.6f", latitude));
-
                     int findType = 0;
                     double serverDist = -1;
 
@@ -187,36 +192,26 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
 
                             findType = responseObject.getInt("findtype");
 
-                            CommonDoc.writelog("response : \n" + response + "\n\n================================================\n");
-                            CommonDoc.writelog("\n\nresult " + (result == 0 ? "(success)" : "(fail)") + " : \n" + message + (findType == 30 ? " - TGrid" : ""));
-                            CommonDoc.writelog("Server Fused Location  : " + String.format("%.6f", sLongitude) + " , " + String.format("%.6f", sLatitude));
-
                             serverDist = CoordTransformUtil.getDistanceBetween(new GPoint(longitude, latitude), new GPoint(sLongitude, sLatitude), true);
-                            CommonDoc.writelog("Fused Distance  : " + String.format("%.1f", serverDist) + "m");
 
                             fragment.mLatitudeTextView.setText(String.format("%.6f", sLatitude));
                             fragment.mLongitudeTextView.setText(String.format("%.6f", sLongitude));
-                        } else {
-                            CommonDoc.writelog("response (fail) : \n" + response);
                         }
 
                         PositionError error = PositionError.fromJson(responseObject.optJSONObject(PositionError.KEY));
                         if (error == null) {
+                            fragment.hideError();
                             fragment.mReceiveStatusTextView.setText(message + (findType == 30 ? "-T " : "") + " (" + String.format("%.1fm", serverDist) + ")");
                         } else {
-                            fragment.mReceiveStatusTextView.setText(error.toDisplayText());
+                            fragment.showError(error);
                         }
 
-                        CommonDoc.writelog("end " + result);
-                        CommonDoc.writeFile();
 
                     } catch (JSONException e) {
                         e.printStackTrace();
 
-                        fragment.mReceiveStatusTextView.setText(new PositionError(PositionError.TYPE_APP, "RESULT_PARSE",
-                                "측위 결과를 화면에 표시하지 못했습니다.", e.getMessage()).toDisplayText());
-                        CommonDoc.writelog("end : JSON parse 오류 \n");
-                        CommonDoc.writeFile();
+                        fragment.showError(new PositionError(PositionError.TYPE_APP, "RESULT_PARSE",
+                                "측위 결과를 화면에 표시하지 못했습니다.", e.getMessage()));
                     }
 
                 }
@@ -238,6 +233,39 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
             mClockTimerTask = null;
         }
     }
+
+    /**
+     * 측위 실패·오류일 때 서버 측위 결과 아래 패널에 상세 내용을 보이고,
+     * 하단 상태 표시줄에는 요약만 둔다.
+     */
+    void showError(PositionError error) {
+        mReceiveStatusTextView.setText("[" + error.getTypeLabel() + "] " + error.message);
+
+        mErrorTitleTextView.setText(error.getTypeLabel());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("코드: ").append(error.code);
+        sb.append("\n내용: ").append(error.message);
+        if (error.httpStatus > 0) {
+            sb.append("\nHTTP 상태: ").append(error.httpStatus);
+        }
+        if (!error.detail.isEmpty()) {
+            sb.append("\n상세: ").append(error.detail);
+        }
+        if (error.time > 0) {
+            sb.append("\n시각: ").append(DateTimeUtils.convertTimestampToDate(error.time));
+        }
+        mErrorDetailTextView.setText(sb.toString());
+
+        mErrorLayout.setVisibility(View.VISIBLE);
+    }
+
+    void hideError() {
+        mErrorLayout.setVisibility(View.GONE);
+        mErrorTitleTextView.setText("");
+        mErrorDetailTextView.setText("");
+    }
+
 
     /**
      * 버튼 이벤트 등록
@@ -262,9 +290,7 @@ public class PositionFragment extends Fragment implements View.OnClickListener {
             // [복합측위 시험] 버튼
             if (CommonDoc.Position.positioningServer != null && !"".equals(CommonDoc.Position.positioningServer)) {
                 CommonDoc.Position.position_type = "server";
-
-                CommonDoc.startLogging("server");
-                CommonDoc.writelog("start to scan signal");
+                hideError();
 
                 PositionScannerManager positionScannerManager = new PositionScannerManager(getContext(), CommonDoc.Position.positioningServer);
                 positionScannerManager.startScan();
